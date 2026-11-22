@@ -288,6 +288,8 @@ input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;bac
 
   // ---------- events ----------
   $('startBtn').onclick = () => S.running ? stop() : start();
+  $('beatSel').onchange = e => { S.beats = +e.target.value; beatIdx = 0; subIdx = 0; buildDots(); save(); };
+  $('subSel').onchange  = e => { S.sub = +e.target.value; subIdx = 0; save(); };
 
   $('beatSel').value = S.beats; $('subSel').value = S.sub;
   buildScale(); buildDots(); setBpm(S.bpm, false); setPendulum(0);
