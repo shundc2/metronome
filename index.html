@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>かんたんメトロノーム</title>
+<style>
+:root{
+  --bg:#141210; --panel:#1d1a17; --panel2:#24201c; --line:#332d27;
+  --text:#f2ebe0; --dim:#9a8b78; --copper1:#e6c9a2; --copper2:#b87d57; --accent:#d9a066;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:"Helvetica Neue",Arial,"Hiragino Sans","Yu Gothic",sans-serif;user-select:none}
+.app{max-width:520px;margin:0 auto;min-height:100%;padding:10px 12px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px}
+header{display:flex;align-items:center;gap:10px;letter-spacing:.35em;font-size:13px;font-weight:700;color:var(--copper1)}
+header .dot{width:10px;height:10px;border-radius:50%;background:var(--copper2)}
+.card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:16px;padding:12px}
+.label{font-size:11px;letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
+
+/* tempo display */
+.tempo{text-align:center;padding-top:10px}
+.bpm{font-family:Georgia,"Times New Roman",serif;font-size:72px;line-height:1;margin:4px 0 0;color:var(--text)}
+.unit{color:var(--dim);letter-spacing:.2em;font-size:12px}
+.tname{color:var(--accent);font-size:12px;letter-spacing:.2em;margin-top:6px;text-transform:uppercase}
+
+/* pendulum */
+.pend{height:300px;position:relative;margin:8px auto 0;width:100%;touch-action:none;cursor:ns-resize}
+.pend .rod{position:absolute;left:50%;bottom:22px;width:8px;height:257px;margin-left:-4px;border-radius:4px;
+  background:linear-gradient(90deg,#8d8b88,#c4c2be,#7a7875);transform-origin:50% 100%;transform:rotate(0deg)}
+.pend .weight{position:absolute;left:50%;width:48px;height:24px;margin-left:-24px;border-radius:5px;
+  background:linear-gradient(135deg,#e6cba6,#8e6a4a);box-shadow:0 3px 8px #000a;border:1px solid #f0e2cd55}
+.pend .weight:before,.pend .weight:after{content:"";position:absolute;top:10px;width:4px;height:4px;border-radius:50%;background:#3a2a1c}
+.pend .weight:before{left:8px}.pend .weight:after{right:8px}
+.pend .base{position:absolute;left:50%;bottom:0;width:48px;height:48px;margin-left:-24px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#4a443d,#1a1714);border:3px solid var(--copper2)}
+.pend .tick{position:absolute;height:1px;background:#8a7357;width:12px}
+.pend .tick.minor{width:7px;opacity:.6}
+.pend .tick.l{left:calc(50% - 96px)}
+.pend .tick.r{left:calc(50% + 84px)}
+.pend .tl{position:absolute;right:calc(50% + 104px);font-size:12px;color:#a8946f;transform:translateY(-50%);text-align:right;width:34px}
+.pend .cur{position:absolute;left:calc(50% - 100px);width:200px;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.55;pointer-events:none}
+
+/* beat dots */
+.dots{display:flex;gap:10px;justify-content:center;margin-top:10px;min-height:16px}
+.dots i{width:14px;height:14px;border-radius:50%;background:#3a342d;transition:background .06s,transform .06s}
+.dots i.accent{border:2px solid var(--copper2)}
+.dots i.on{background:var(--copper1);transform:scale(1.25)}
+.dots i.on.accent{background:#ffb066}
+
+/* controls */
+.row{display:flex;gap:12px}
+.sel{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:10px 14px;position:relative}
+.sel select{width:100%;background:transparent;border:0;color:var(--text);font-size:18px;font-weight:700;padding:4px 0;outline:0;appearance:none;-webkit-appearance:none}
+.sel select option{background:#1d1a17;font-size:16px}
+.sel:after{content:"›";position:absolute;right:14px;bottom:12px;color:var(--dim);font-size:22px;transform:rotate(90deg)}
+
+.slider-box{display:flex;align-items:center;gap:10px;margin-top:8px}
+.rbtn{width:38px;height:38px;border-radius:12px;border:1px solid var(--line);background:#191613;color:var(--text);font-size:24px;cursor:pointer}
+.rbtn:active{background:#2a2420}
+input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:#3a342d;outline:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,var(--copper1),var(--copper2));border:0;box-shadow:0 2px 6px #0009}
+input[type=range]::-moz-range-thumb{width:26px;height:26px;border-radius:50%;background:var(--copper2);border:0}
+
+.start{width:100%;height:54px;border-radius:16px;border:2px solid #f0e2cd55;font-size:19px;font-weight:800;letter-spacing:.12em;
+  color:#1a1410;background:linear-gradient(#e6cba6,#b87d57);cursor:pointer}
+.start.running{background:linear-gradient(#c96b5a,#8d3d33);color:#fff}
+.start:active{transform:translateY(1px)}
+.btn2{flex:1;height:48px;border-radius:14px;border:1px solid var(--line);background:#121010;color:var(--text);
+  font-size:13px;font-weight:700;letter-spacing:.1em;cursor:pointer}
+.btn2:active{background:#241f1b}
+.btn2.active{border-color:var(--copper2);color:var(--copper1)}
+
+/* pattern */
+.presets{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.presets button{flex:1;min-width:60px;height:34px;border-radius:10px;border:1px solid var(--line);background:#121010;color:var(--text);font-size:13px;font-weight:700;cursor:pointer}
+.presets button:active{background:#2a2420}
+.pgrid{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.pgroup{display:flex;gap:3px;padding:4px;border:1px solid var(--line);border-radius:10px;background:#121010}
+.pcell{min-width:32px;height:40px;border-radius:8px;border:1px solid var(--line);background:#191613;color:var(--dim);font-size:14px;cursor:pointer;padding:0 4px}
+.pcell.front{font-weight:800;font-size:16px}
+.pcell.on{background:linear-gradient(#e6cba6,#b87d57);color:#1a1410;border-color:transparent}
+.pcell.now{box-shadow:0 0 0 3px #fff9}
+.pnote{font-size:11px;color:var(--dim);margin-top:8px;line-height:1.6}
+
+/* practice */
+#practice{display:none}
+#practice.open{display:block}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.grid label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--dim)}
+.grid input{background:#121010;border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:18px;padding:8px 10px;width:100%}
+.status{margin-top:12px;font-size:13px;color:var(--accent);min-height:18px}
+.vol{display:flex;align-items:center;gap:10px}
+.vol span{font-size:12px;color:var(--dim);width:40px}
+.hint{font-size:11px;color:var(--dim);text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="app">
+  <header><span class="dot"></span>METRONOME</header>
+
+  <section class="card tempo">
+    <div class="label">Tempo</div>
+    <div class="bpm" id="bpmText">100</div>
+    <div class="unit">♩ BPM</div>
+    <div class="tname" id="tname">Andante</div>
+    <div class="pend" id="pend">
+      <div class="cur" id="cur"></div>
+      <div class="rod" id="rod"><div class="weight" id="weight"></div></div>
+      <div class="base"></div>
+    </div>
+    <div class="dots" id="dots"></div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <div class="sel">
+        <div class="label">Beat</div>
+        <select id="beatSel">
+          <option value="2">2/4</option>
+          <option value="3">3/4</option>
+          <option value="4" selected>4/4</option>
+          <option value="5">5/4</option>
+          <option value="6">6/8</option>
+        </select>
+      </div>
+      <div class="sel">
+        <div class="label">Rhythm</div>
+        <select id="subSel">
+          <option value="1">♩ 4分</option>
+          <option value="2">♫ 8分</option>
+          <option value="3">3連符</option>
+          <option value="4">16分</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <button class="start" id="startBtn">▶ START</button>
+</div>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const S = { bpm:100, beats:4, sub:1, running:false };
+  try { const v = JSON.parse(localStorage.getItem('metro.simple') || '{}'); if(v.bpm) S.bpm = v.bpm; if(v.beats) S.beats = v.beats; if(v.sub) S.sub = v.sub; } catch(e){}
+  const save = () => { try { localStorage.setItem('metro.simple', JSON.stringify({bpm:S.bpm, beats:S.beats, sub:S.sub})); } catch(e){} };
+
+  // ---------- audio ----------
+  let ctx = null, master = null, nextTime = 0, beatIdx = 0, subIdx = 0, timer = null, anchor = null;
+  const queue = [], LOOKAHEAD = 0.12, INTERVAL = 25;
+  function ensureCtx(){
+    if(!ctx){ ctx = new (window.AudioContext || window.webkitAudioContext)(); master = ctx.createGain(); master.gain.value = 0.8; master.connect(ctx.destination); }
+    if(ctx.state !== 'running') ctx.resume();
+  }
+  function click(time, kind){ // 2=accent, 1=normal, 0=sub
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.value = kind===2 ? 1500 : kind===1 ? 1000 : 750;
+    const peak = kind===2 ? 1.0 : kind===1 ? 0.75 : 0.4;
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime(peak, time + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    o.connect(g); g.connect(master); o.start(time); o.stop(time + 0.08);
+  }
+  function scheduler(){
+    while(nextTime < ctx.currentTime + LOOKAHEAD){
+      const spb = 60 / S.bpm;
+      const kind = subIdx===0 ? (beatIdx===0 ? 2 : 1) : 0;
+      click(nextTime, kind);
+      queue.push({time:nextTime, beat:beatIdx, sub:subIdx, spb});
+      nextTime += spb / S.sub;
+      if(++subIdx >= S.sub){ subIdx = 0; beatIdx = (beatIdx + 1) % S.beats; }
+    }
+  }
+  function start(){
+    ensureCtx();
+    beatIdx = 0; subIdx = 0; queue.length = 0; anchor = null;
+    nextTime = ctx.currentTime + 0.08;
+    timer = setInterval(scheduler, INTERVAL);
+    S.running = true;
+    $('startBtn').textContent = '■ STOP'; $('startBtn').classList.add('running');
+    requestWake();
+  }
+  function stop(){
+    clearInterval(timer); timer = null;
+    S.running = false; queue.length = 0; anchor = null;
+    $('startBtn').textContent = '▶ START'; $('startBtn').classList.remove('running');
+    document.querySelectorAll('.dots i').forEach(d => d.classList.remove('on'));
+    setPendulum(0); releaseWake();
+  }
+
+  // ---------- UI ----------
+  function tempoName(b){
+    return b<66?'Largo':b<76?'Adagio':b<108?'Andante':b<120?'Moderato':b<156?'Allegro':b<176?'Vivace':'Presto';
+  }
+  function setBpm(v, persist=true){
+    v = Math.max(20, Math.min(400, Math.round(v)));
+    S.bpm = v;
+    $('bpmText').textContent = v; $('tname').textContent = tempoName(v);
+    updateWeight(); if(persist) save();
+  }
+  function buildDots(){
+    const box = $('dots'); box.innerHTML = '';
+    for(let i=0;i<S.beats;i++){
+      const d = document.createElement('i'); if(i===0 || (S.beats===6 && i===3)) d.classList.add('accent'); box.appendChild(d);
+    }
+  }
+
+  // ---------- pendulum / scale ----------
+  const PTS=[[20,0],[40,.102],[60,.212],[80,.312],[100,.409],[120,.503],[160,.619],[200,.721],[300,.88],[400,1]];
+  const PIVOT=22, Y_TOP=235, Y_RANGE=205, SWING=8;
+  function bpmToF(b){
+    b=Math.max(20,Math.min(400,b));
+    for(let i=1;i<PTS.length;i++){
+      if(b<=PTS[i][0]){const [b0,f0]=PTS[i-1],[b1,f1]=PTS[i]; return f0+(f1-f0)*(b-b0)/(b1-b0);}
+    }
+    return 1;
+  }
+  function fToBpm(f){
+    f=Math.max(0,Math.min(1,f));
+    for(let i=1;i<PTS.length;i++){
+      if(f<=PTS[i][1]){const [b0,f0]=PTS[i-1],[b1,f1]=PTS[i]; return b0+(b1-b0)*(f-f0)/(f1-f0);}
+    }
+    return 400;
+  }
+  const yOf = b => Y_TOP - bpmToF(b) * Y_RANGE;
+  function buildScale(){
+    const pend = $('pend');
+    const majors=[20,40,60,80,100,120,160,200,300,400];
+    const minors=[30,50,70,90,110,140,180,250,350];
+    const add = (b, major) => {
+      const bottom = PIVOT + yOf(b);
+      ['l','r'].forEach(side => {
+        const t = document.createElement('div');
+        t.className = 'tick ' + side + (major ? '' : ' minor');
+        t.style.bottom = bottom + 'px'; pend.appendChild(t);
+      });
+      if(major){
+        const l = document.createElement('div');
+        l.className = 'tl'; l.textContent = b; l.style.bottom = (bottom - 7) + 'px'; pend.appendChild(l);
+      }
+    };
+    majors.forEach(b => add(b, true)); minors.forEach(b => add(b, false));
+  }
+  function updateWeight(){
+    const y = yOf(S.bpm);
+    $('weight').style.bottom = (y - 12) + 'px';
+    $('cur').style.bottom = (PIVOT + y) + 'px';
+  }
+  function setPendulum(angle){ $('rod').style.transform = `rotate(${angle}deg)`; }
+  (function(){
+    const pend = $('pend'); let drag = false;
+    const fromY = e => {
+      const r = pend.getBoundingClientRect();
+      const y = (r.bottom - PIVOT) - e.clientY;
+      setBpm(fToBpm((Y_TOP - y) / Y_RANGE));
+    };
+    pend.addEventListener('pointerdown', e => { drag = true; pend.setPointerCapture(e.pointerId); fromY(e); });
+    pend.addEventListener('pointermove', e => { if(drag) fromY(e); });
+    ['pointerup','pointercancel'].forEach(ev => pend.addEventListener(ev, () => drag = false));
+  })();
+
+  function draw(){
+    if(S.running && ctx){
+      const now = ctx.currentTime;
+      while(queue.length && queue[0].time <= now){
+        const ev = queue.shift();
+        if(ev.sub === 0){
+          anchor = {time:ev.time, spb:ev.spb, abs:(anchor ? anchor.abs+1 : 0)};
+          const dots = $('dots').children;
+          for(let i=0;i<dots.length;i++) dots[i].classList.toggle('on', i===ev.beat);
+        }
+      }
+      if(anchor){
+        const phase = anchor.abs + Math.min(1.2, (now - anchor.time) / anchor.spb);
+        setPendulum(SWING * Math.cos(Math.PI * phase));
+      }
+    }
+    requestAnimationFrame(draw);
+  }
+
+  // wake lock
+  let wake = null;
+  async function requestWake(){ try{ if('wakeLock' in navigator) wake = await navigator.wakeLock.request('screen'); }catch(e){} }
+  function releaseWake(){ try{ wake && wake.release(); }catch(e){} wake = null; }
+  document.addEventListener('visibilitychange', () => { if(document.visibilityState==='visible' && S.running) requestWake(); });
+
+  // ---------- events ----------
+  $('startBtn').onclick = () => S.running ? stop() : start();
+
+  $('beatSel').value = S.beats; $('subSel').value = S.sub;
+  buildScale(); buildDots(); setBpm(S.bpm, false); setPendulum(0);
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
